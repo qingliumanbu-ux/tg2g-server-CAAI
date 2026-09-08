@@ -110,8 +110,25 @@ int f_caai_ny(CString stats_period, CString dept_code, CDbConnection * conn)
 				cmd_inq_1.Close();
 
 				//往tcaai01表插入物料对应产品规格牌号的产出数据
+// DM8 适配 CHANGE-254:写入/查询 TCAAI01。空串搜索 DECODE 改为标准 CASE。
+// 改写原因：空串搜索 DECODE(x,'',a,b) 改为标准 CASE WHEN x IS NULL OR x='' THEN a ELSE b,与 CHANGE-107 同理,不依赖空串/NULL 匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+				// sqlstr = " insert into tcaai01(REC_CREATE_TIME,dept_code, stats_period, cost_center, prod_date, prod_shift_group, prod_shift_no, sub_backlog_code, equ_no, sg_sign, mat_thick, mat_width, product_code, product_code_cname,divvy_type, divvy_basic_n ) "
+					// " SELECT @datenow,  t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.MAT_CODE,t1.mat_name,'7',SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*WT) "
+					// " FROM TCAAIS1 t1 "
+					// " left join tcaac09 t9 "
+					// " on t1.sg_sign = t9.sg_sign AND t1.mat_thick = t9.mat_thick  AND t1.mat_width = t9.mat_width and t1.cost_center=t9.sub_backlog_code and t1.dept_code=t9.dept_code and t9.mat_code=@mat_code "
+					// " WHERE 1=1 "
+					// " AND t1.sub_backlog_code = @sub_backlog_code "
+					// " AND PRO_FLAG ='O' " //产出工序
+					// " AND stats_period = @stats_period "
+					// " group by   t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.MAT_CODE,t1.mat_name "
+					// " HAVING SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*WT)!=0 "
+					// ;
+// DM8 SQL：
 				sqlstr = " insert into tcaai01(REC_CREATE_TIME,dept_code, stats_period, cost_center, prod_date, prod_shift_group, prod_shift_no, sub_backlog_code, equ_no, sg_sign, mat_thick, mat_width, product_code, product_code_cname,divvy_type, divvy_basic_n ) "
-					" SELECT @datenow,  t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.MAT_CODE,t1.mat_name,'7',SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*WT) "
+					" SELECT @datenow,  t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.MAT_CODE,t1.mat_name,'7',SUM(CASE WHEN CAL_RATE IS NULL OR CAL_RATE = '' THEN 0 ELSE CAL_RATE END*WT) "
 					" FROM TCAAIS1 t1 "
 					" left join tcaac09 t9 "
 					" on t1.sg_sign = t9.sg_sign AND t1.mat_thick = t9.mat_thick  AND t1.mat_width = t9.mat_width and t1.cost_center=t9.sub_backlog_code and t1.dept_code=t9.dept_code and t9.mat_code=@mat_code "
@@ -120,7 +137,7 @@ int f_caai_ny(CString stats_period, CString dept_code, CDbConnection * conn)
 					" AND PRO_FLAG ='O' " //产出工序
 					" AND stats_period = @stats_period "
 					" group by   t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.MAT_CODE,t1.mat_name "
-					" HAVING SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*WT)!=0 "
+					" HAVING SUM(CASE WHEN CAL_RATE IS NULL OR CAL_RATE = '' THEN 0 ELSE CAL_RATE END*WT)!=0 "
 					;
 				cmd_inq_1.SetCommandText(sqlstr);
 				cmd_inq_1.Parameters.Set("datenow", datenow);

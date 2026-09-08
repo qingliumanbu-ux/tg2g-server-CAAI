@@ -29,6 +29,23 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 	try
 	{
 		//原料、副产品、产成品的物料代码不能为空,工序代码不能为空
+// DM8 适配 CHANGE-242:更新/查询 TCAAIA1。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = "update tcaaia1 "
+			// " set STATS_PERIOD = @stats_period"
+			// " ,REC_REVISE_TIME = @datetime"
+			// " ,STATUS_FLAG = '0'"
+			// " ,CHECK_FLAG = '1'"
+			// " WHERE  1=1"			
+			// " AND (MAT_CODE IN (SELECT MAT_CODE FROM TCAAC11) or length(MAT_CODE)>19)"
+			// " AND SUB_BACKLOG_CODE !=' '"
+			// " AND CHECK_FLAG in ('0',' ')"
+			// " and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			// " AND PROD_TIME  between @begin_time AND @end_time"
+			// ;
+// DM8 SQL：
 		sqlstr = "update tcaaia1 "
 			" set STATS_PERIOD = @stats_period"
 			" ,REC_REVISE_TIME = @datetime"
@@ -38,7 +55,7 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 			" AND (MAT_CODE IN (SELECT MAT_CODE FROM TCAAC11) or length(MAT_CODE)>19)"
 			" AND SUB_BACKLOG_CODE !=' '"
 			" AND CHECK_FLAG in ('0',' ')"
-			" and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			" and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END"
 			" AND PROD_TIME  between @begin_time AND @end_time"
 			;
 		cmd_inq_a1.SetCommandText(sqlstr);
@@ -52,6 +69,23 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 
 
 		//工序代码为空的，提示
+// DM8 适配 CHANGE-243:更新 TCAAIA1。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = "update tcaaia1 "
+			// " set STATS_PERIOD = @stats_period"
+			// " ,REC_REVISE_TIME = @datetime"
+			// " ,STATUS_FLAG = '0'"
+			// " ,CHECK_FLAG = '0'"
+			// " ,ERROR_INFO = '交易数据有误，工序代码不能为空！'"
+			// " WHERE 1=1"
+			// " and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			// " AND PROD_TIME  between @begin_time AND @end_time"
+			// " AND SUB_BACKLOG_CODE =' '"
+			// " AND CHECK_FLAG in('0', ' ')"
+			// ;
+// DM8 SQL：
 		sqlstr = "update tcaaia1 "
 			" set STATS_PERIOD = @stats_period"
 			" ,REC_REVISE_TIME = @datetime"
@@ -59,7 +93,7 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 			" ,CHECK_FLAG = '0'"
 			" ,ERROR_INFO = '交易数据有误，工序代码不能为空！'"
 			" WHERE 1=1"
-			" and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			" and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END"
 			" AND PROD_TIME  between @begin_time AND @end_time"
 			" AND SUB_BACKLOG_CODE =' '"
 			" AND CHECK_FLAG in('0', ' ')"
@@ -74,6 +108,23 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 		cmd_inq_a1.Close();
 
 		//物料代码不存在，提示
+// DM8 适配 CHANGE-244:更新/查询 TCAAIA1。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = "update tcaaia1 "
+			// " set STATS_PERIOD = @stats_period"
+			// " ,REC_REVISE_TIME = @datetime"
+			// " ,STATUS_FLAG = '0'"
+			// " ,CHECK_FLAG = '0'"
+			// " ,ERROR_INFO = '交易数据有误，该物料代码在产副品代码表中不存在!'"
+			// " WHERE CHECK_FLAG in ('0',' ')"			
+			// " AND SUB_BACKLOG_CODE !=' '"
+			// " AND (MAT_CODE NOT IN (SELECT MAT_CODE FROM TCAAC11) or length(MAT_CODE)>19)"
+			// " and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			// " AND PROD_TIME  between @begin_time AND @end_time"
+			// ;
+// DM8 SQL：
 		sqlstr = "update tcaaia1 "
 			" set STATS_PERIOD = @stats_period"
 			" ,REC_REVISE_TIME = @datetime"
@@ -83,7 +134,7 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 			" WHERE CHECK_FLAG in ('0',' ')"			
 			" AND SUB_BACKLOG_CODE !=' '"
 			" AND (MAT_CODE NOT IN (SELECT MAT_CODE FROM TCAAC11) or length(MAT_CODE)>19)"
-			" and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			" and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END"
 			" AND PROD_TIME  between @begin_time AND @end_time"
 			;
 		cmd_inq_a1.SetCommandText(sqlstr);
@@ -96,6 +147,23 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 		cmd_inq_a1.Close();
 
 		//判断是否已经生成规则
+// DM8 适配 CHANGE-245:更新/查询 TCAAIA1。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = "update tcaaia1"
+			// " set REC_REVISE_TIME = @datetime"
+			// " ,STATUS_FLAG='1'"
+			// " ,ERROR_INFO=' '"
+			// " WHERE 1=1"
+			// " AND (exists (SELECT 1 FROM TCAAC03 WHERE TCAAC03.SUB_BACKLOG_CODE = tcaaia1.SUB_BACKLOG_CODE and TCAAC03.MAT_CODE = tcaaia1.MAT_CODE ) OR  PRO_FLAG = 'O' or length(mat_code)>19)"   //I 投入，P 产出，F 成品缴库，I 材料处置,产出坯料信息			
+			// " AND CHECK_FLAG='1'"
+			// " AND STATUS_FLAG in('0',' ') "
+			// " and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			// " AND STATS_PERIOD = @stats_period "
+			// 
+			// ;
+// DM8 SQL：
 		sqlstr = "update tcaaia1"
 			" set REC_REVISE_TIME = @datetime"
 			" ,STATUS_FLAG='1'"
@@ -104,7 +172,7 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 			" AND (exists (SELECT 1 FROM TCAAC03 WHERE TCAAC03.SUB_BACKLOG_CODE = tcaaia1.SUB_BACKLOG_CODE and TCAAC03.MAT_CODE = tcaaia1.MAT_CODE ) OR  PRO_FLAG = 'O' or length(mat_code)>19)"   //I 投入，P 产出，F 成品缴库，I 材料处置,产出坯料信息			
 			" AND CHECK_FLAG='1'"
 			" AND STATUS_FLAG in('0',' ') "
-			" and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			" and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END"
 			" AND STATS_PERIOD = @stats_period "
 			
 			;
@@ -116,6 +184,25 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 		cmd_inq.Close();
 
 		//1、判断是否有工序与物料代码是否生成收集规则 tcaac03
+// DM8 适配 CHANGE-246:更新/查询 TCAAIA1。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = "update tcaaia1"
+			// " set REC_REVISE_TIME = @datetime"
+			// " ,CHECK_FLAG='0'"
+			// " ,STATUS_FLAG='0'"
+			// " ,ERROR_INFO = '工序代码为【'||SUB_BACKLOG_CODE||'】，物料代码为【'||MAT_CODE||'】未维护收集规则，请至CAAC03画面维护!'"
+			// " WHERE 1=1"			
+			// " AND CHECK_FLAG='1'"
+			// " AND STATUS_FLAG in('0',' ') "
+			// " and  length(MAT_CODE)<19"
+			// " AND PRO_FLAG = 'I'"   //I 投入，O 产出，F 成品缴库，I 材料处置
+			// " AND not exists (SELECT 1 FROM TCAAC03 WHERE TCAAC03.SUB_BACKLOG_CODE = tcaaia1.SUB_BACKLOG_CODE and TCAAC03.MAT_CODE = tcaaia1.MAT_CODE ) "
+			// " and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			// " AND STATS_PERIOD = @stats_period "
+			// ;
+// DM8 SQL：
 		sqlstr = "update tcaaia1"
 			" set REC_REVISE_TIME = @datetime"
 			" ,CHECK_FLAG='0'"
@@ -127,7 +214,7 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 			" and  length(MAT_CODE)<19"
 			" AND PRO_FLAG = 'I'"   //I 投入，O 产出，F 成品缴库，I 材料处置
 			" AND not exists (SELECT 1 FROM TCAAC03 WHERE TCAAC03.SUB_BACKLOG_CODE = tcaaia1.SUB_BACKLOG_CODE and TCAAC03.MAT_CODE = tcaaia1.MAT_CODE ) "
-			" and dept_code = decode(trim(@dept_code),'',dept_code,@dept_code)"
+			" and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END"
 			" AND STATS_PERIOD = @stats_period "
 			;
 		cmd_inq.SetCommandText(sqlstr);
@@ -179,11 +266,23 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 		cmd_inq.Close();
 
 		//更新成本中心为工序
+// DM8 适配 CHANGE-247:更新 TCAAIA1。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = "update tcaaia1"
+			// " set cost_center = sub_backlog_code"			
+			// " WHERE 1=1"
+			// " AND CHECK_FLAG='1'"
+			// " and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code)"
+			// " and STATS_PERIOD = @stats_period "
+			// ;
+// DM8 SQL：
 		sqlstr = "update tcaaia1"
 			" set cost_center = sub_backlog_code"			
 			" WHERE 1=1"
 			" AND CHECK_FLAG='1'"
-			" and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code)"
+			" and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END"
 			" and STATS_PERIOD = @stats_period "
 			;
 		cmd_inq.SetCommandText(sqlstr);
@@ -193,6 +292,24 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 		cmd_inq.Close();
 
 		//判断有投无产投产
+// DM8 适配 CHANGE-248:更新/查询 TCAAIA1。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = " update tcaaia1 t1"
+			// " set REC_REVISE_TIME = @datetime"
+			// " ,CHECK_FLAG='0'"
+			// " ,STATUS_FLAG='0'"
+			// " ,ERROR_INFO = '批次号为【'||RELATION_NO||'】，工序为【'||SUB_BACKLOG_CODE||'】有投无产!'"
+			// " WHERE 1=1"
+			// " AND CHECK_FLAG='1'"
+			// //" AND STATUS_FLAG in('0',' ') "
+			// " AND PRO_FLAG = 'I'"   
+			// " AND not exists (SELECT 1 FROM tcaaia1 t2 WHERE  t1.RELATION_NO = t2.RELATION_NO and t1.sub_Backlog_code = t2.sub_Backlog_code and t1.stats_period = t2.stats_period and  PRO_FLAG = 'O'  and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code) and  t2.STATS_PERIOD = @stats_period )"
+			// " and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code)"
+			// " and STATS_PERIOD = @stats_period "			
+			// ;
+// DM8 SQL：
 		sqlstr = " update tcaaia1 t1"
 			" set REC_REVISE_TIME = @datetime"
 			" ,CHECK_FLAG='0'"
@@ -202,8 +319,8 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 			" AND CHECK_FLAG='1'"
 			//" AND STATUS_FLAG in('0',' ') "
 			" AND PRO_FLAG = 'I'"   
-			" AND not exists (SELECT 1 FROM tcaaia1 t2 WHERE  t1.RELATION_NO = t2.RELATION_NO and t1.sub_Backlog_code = t2.sub_Backlog_code and t1.stats_period = t2.stats_period and  PRO_FLAG = 'O'  and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code) and  t2.STATS_PERIOD = @stats_period )"
-			" and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code)"
+			" AND not exists (SELECT 1 FROM tcaaia1 t2 WHERE  t1.RELATION_NO = t2.RELATION_NO and t1.sub_Backlog_code = t2.sub_Backlog_code and t1.stats_period = t2.stats_period and  PRO_FLAG = 'O'  and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END and  t2.STATS_PERIOD = @stats_period )"
+			" and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END"
 			" and STATS_PERIOD = @stats_period "			
 			;
 		cmd_inq.SetCommandText(sqlstr);
@@ -213,6 +330,22 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 		cmd_inq.Close();
 
 		//判断有产无投
+// DM8 适配 CHANGE-249:更新/查询 TCAAIA1。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = " update tcaaia1 t1"
+			// " set REC_REVISE_TIME = @datetime"
+			// " ,ERROR_INFO = '【警告】批次号为【'||RELATION_NO||'】，工序为【'||SUB_BACKLOG_CODE||'】有产无投!'"
+			// " WHERE 1=1"
+			// " AND CHECK_FLAG='1'"
+			// //" AND STATUS_FLAG in('0',' ') "
+			// " AND PRO_FLAG = 'O'"
+			// " AND not exists (SELECT 1 FROM tcaaia1 t2 WHERE  t1.RELATION_NO = t2.RELATION_NO and t1.sub_Backlog_code = t2.sub_Backlog_code and t1.stats_period = t2.stats_period and  PRO_FLAG = 'I'  and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code) and  t2.STATS_PERIOD = @stats_period )"
+			// " and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code)"
+			// " and STATS_PERIOD = @stats_period "
+			// ;
+// DM8 SQL：
 		sqlstr = " update tcaaia1 t1"
 			" set REC_REVISE_TIME = @datetime"
 			" ,ERROR_INFO = '【警告】批次号为【'||RELATION_NO||'】，工序为【'||SUB_BACKLOG_CODE||'】有产无投!'"
@@ -220,8 +353,8 @@ int f_caai_check1(CString stats_period, CString dept_code, CString begin_time, C
 			" AND CHECK_FLAG='1'"
 			//" AND STATUS_FLAG in('0',' ') "
 			" AND PRO_FLAG = 'O'"
-			" AND not exists (SELECT 1 FROM tcaaia1 t2 WHERE  t1.RELATION_NO = t2.RELATION_NO and t1.sub_Backlog_code = t2.sub_Backlog_code and t1.stats_period = t2.stats_period and  PRO_FLAG = 'I'  and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code) and  t2.STATS_PERIOD = @stats_period )"
-			" and dept_code = decode(trim(@dept_code), '', dept_code, @dept_code)"
+			" AND not exists (SELECT 1 FROM tcaaia1 t2 WHERE  t1.RELATION_NO = t2.RELATION_NO and t1.sub_Backlog_code = t2.sub_Backlog_code and t1.stats_period = t2.stats_period and  PRO_FLAG = 'I'  and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END and  t2.STATS_PERIOD = @stats_period )"
+			" and dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN dept_code ELSE @dept_code END"
 			" and STATS_PERIOD = @stats_period "
 			;
 		cmd_inq.SetCommandText(sqlstr);

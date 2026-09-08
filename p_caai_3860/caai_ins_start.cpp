@@ -311,10 +311,21 @@ int f_caai_ins_start(EIClass * bcls_rec, EIClass * bcls_ret, CDbConnection * con
 				if (tcaac13["JOB_CODE"].ToString() == "20")
 				{
 					//其他方式的分摊方法
+// DM8 适配 CHANGE-264:查询。空值搜索 DECODE 改为标准 CASE。
+// 改写原因：空值搜索 DECODE 改为标准 CASE,不依赖 NULL 相等匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+					// sqlstr = " select distinct sub_backlog_code,divvy_type"
+						// " from tcaais2"
+						// " where 1=1"
+						// " AND dept_code = decode(trim(@dept_code), '', sub_backlog_code, @dept_code)"
+						// " and STATS_PERIOD = @stats_period"
+						// ;
+// DM8 SQL：
 					sqlstr = " select distinct sub_backlog_code,divvy_type"
 						" from tcaais2"
 						" where 1=1"
-						" AND dept_code = decode(trim(@dept_code), '', sub_backlog_code, @dept_code)"
+						" AND dept_code = CASE WHEN trim(@dept_code) IS NULL OR trim(@dept_code) = '' THEN sub_backlog_code ELSE @dept_code END"
 						" and STATS_PERIOD = @stats_period"
 						;
 					cmd_inq_sub.SetCommandText(sqlstr);

@@ -43,7 +43,19 @@ int f_caaib1_ins(EIClass * bcls_rec, EIClass * bcls_ret, CDbConnection * conn)
 			tcaaib1["REC_CREATOR"] = s.userid;
 			tcaaib1["REC_CREATE_TIME"] = CDateTime::Now().ToString("yyyyMMddHHmmss");			
 
-			sqlstr = "select  @project_id||decode (key_seq,'','000001',trim(to_char(to_number(nvl(key_seq,0))+1, '000000'))) from ("
+// DM8 适配 CHANGE-262:查询。空串搜索 DECODE 改为标准 CASE。
+// 改写原因：空串搜索 DECODE(x,'',a,b) 改为标准 CASE WHEN x IS NULL OR x='' THEN a ELSE b,与 CHANGE-107 同理,不依赖空串/NULL 匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+			// sqlstr = "select  @project_id||decode (key_seq,'','000001',trim(to_char(to_number(nvl(key_seq,0))+1, '000000'))) from ("
+				// " select max(substr(key_seq,length(@project_id)+1,6)) key_seq"
+				// " from tcaaib1"
+				// " where 1=1"
+				// " and project_id = @project_id"
+				// ")"
+				// ;
+// DM8 SQL：
+			sqlstr = "select  @project_id||CASE WHEN key_seq IS NULL OR key_seq = '' THEN '000001' ELSE trim(to_char(to_number(nvl(key_seq,0))+1, '000000')) END from ("
 				" select max(substr(key_seq,length(@project_id)+1,6)) key_seq"
 				" from tcaaib1"
 				" where 1=1"

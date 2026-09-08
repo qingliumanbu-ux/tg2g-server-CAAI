@@ -257,8 +257,20 @@ int f_caai_ft(CString stats_period, CString dept_code, CDbConnection * conn)
 				cmd_inq_1.Close();
 
 				//查询单个物料对应所有牌号规格乘上系数后的总量
+// DM8 适配 CHANGE-250:查询。空串搜索 DECODE 改为标准 CASE。
+// 改写原因：空串搜索 DECODE(x,'',a,b) 改为标准 CASE WHEN x IS NULL OR x='' THEN a ELSE b,与 CHANGE-107 同理,不依赖空串/NULL 匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+				// sqlstr = " select sum(wt) from ( "
+					// " SELECT  t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n) wt"
+					// " FROM tcaai01 t1 "
+					// " left join tcaac09 t9 "
+					// " on  t1.cost_center=t9.sub_backlog_code and t9.mat_code=@mat_code " + left_no +
+					// " WHERE 1=1 "
+					// ;
+// DM8 SQL：
 				sqlstr = " select sum(wt) from ( "
-					" SELECT  t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n) wt"
+					" SELECT  t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,SUM(CASE WHEN CAL_RATE IS NULL OR CAL_RATE = '' THEN 0 ELSE CAL_RATE END*divvy_basic_n) wt"
 					" FROM tcaai01 t1 "
 					" left join tcaac09 t9 "
 					" on  t1.cost_center=t9.sub_backlog_code and t9.mat_code=@mat_code " + left_no +
@@ -315,10 +327,24 @@ int f_caai_ft(CString stats_period, CString dept_code, CDbConnection * conn)
 				switch (conn->DatabaseKind)
 				{
 				case DB_KIND_DB2:	        // DB2 数据库（未开Oracle兼容）
+// DM8 适配 CHANGE-251:写入/查询 TCAAI02。空串搜索 DECODE 改为标准 CASE。
+// 改写原因：空串搜索 DECODE(x,'',a,b) 改为标准 CASE WHEN x IS NULL OR x='' THEN a ELSE b,与 CHANGE-107 同理,不依赖空串/NULL 匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+					// sqlstr = " insert into tcaai02 (REC_CREATE_TIME,dept_code,prod_date,sub_backlog_code,cost_center,stats_period,product_code,equ_no, sg_sign,prod_shift_group,prod_shift_no, mat_thick, mat_width,VFREE1,VFREE2,MAT_CODE,RULE_TYPE,DIVVY_TYPE,WT,AMT,key_seq)"
+						// " select @datenow,dept_code,prod_date,sub_backlog_code,sub_backlog_code,stats_period,product_code,equ_no, sg_sign,prod_shift_group,prod_shift_no, mat_thick, mat_width,VFREE1,VFREE2,MAT_CODE,@rule_type,'7',wt,amt,'ft'||trim(@prod_shift_group)||trim(@prod_shift_no)"
+						// " from ("
+						// " SELECT t1.product_code,t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.VFREE1,t1.VFREE2,@mat_code mat_code,cast(SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)/@sum_wt*@use_wt as decimal(16,4)) wt,cast(SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)/@sum_wt*@use_amt as decimal(12,2) ) amt"
+						// " FROM tcaai01 t1 "
+						// " left join tcaac09 t9 "
+						// " on  t1.cost_center=t9.sub_backlog_code and t9.mat_code=@mat_code " + left_no +
+						// " WHERE 1=1 "
+						// ;
+// DM8 SQL：
 					sqlstr = " insert into tcaai02 (REC_CREATE_TIME,dept_code,prod_date,sub_backlog_code,cost_center,stats_period,product_code,equ_no, sg_sign,prod_shift_group,prod_shift_no, mat_thick, mat_width,VFREE1,VFREE2,MAT_CODE,RULE_TYPE,DIVVY_TYPE,WT,AMT,key_seq)"
 						" select @datenow,dept_code,prod_date,sub_backlog_code,sub_backlog_code,stats_period,product_code,equ_no, sg_sign,prod_shift_group,prod_shift_no, mat_thick, mat_width,VFREE1,VFREE2,MAT_CODE,@rule_type,'7',wt,amt,'ft'||trim(@prod_shift_group)||trim(@prod_shift_no)"
 						" from ("
-						" SELECT t1.product_code,t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.VFREE1,t1.VFREE2,@mat_code mat_code,cast(SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)/@sum_wt*@use_wt as decimal(16,4)) wt,cast(SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)/@sum_wt*@use_amt as decimal(12,2) ) amt"
+						" SELECT t1.product_code,t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.VFREE1,t1.VFREE2,@mat_code mat_code,cast(SUM(CASE WHEN CAL_RATE IS NULL OR CAL_RATE = '' THEN 0 ELSE CAL_RATE END*divvy_basic_n)/@sum_wt*@use_wt as decimal(16,4)) wt,cast(SUM(CASE WHEN CAL_RATE IS NULL OR CAL_RATE = '' THEN 0 ELSE CAL_RATE END*divvy_basic_n)/@sum_wt*@use_amt as decimal(12,2) ) amt"
 						" FROM tcaai01 t1 "
 						" left join tcaac09 t9 "
 						" on  t1.cost_center=t9.sub_backlog_code and t9.mat_code=@mat_code " + left_no +
@@ -329,10 +355,24 @@ int f_caai_ft(CString stats_period, CString dept_code, CDbConnection * conn)
 				case DB_KIND_ORACLE:	        // Oracle 数据库
 				default: // 通用
 					//插入值
+// DM8 适配 CHANGE-252:写入/查询 TCAAI02。空串搜索 DECODE 改为标准 CASE。
+// 改写原因：空串搜索 DECODE(x,'',a,b) 改为标准 CASE WHEN x IS NULL OR x='' THEN a ELSE b,与 CHANGE-107 同理,不依赖空串/NULL 匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+					// sqlstr = " insert into tcaai02 (REC_CREATE_TIME,dept_code,prod_date,sub_backlog_code,cost_center,stats_period,product_code,equ_no, sg_sign,prod_shift_group,prod_shift_no, mat_thick, mat_width,VFREE1,VFREE2,MAT_CODE,RULE_TYPE,DIVVY_TYPE,WT,AMT,key_seq)"
+						// " select @datenow,dept_code,prod_date,sub_backlog_code,sub_backlog_code,stats_period,product_code,equ_no, sg_sign,prod_shift_group,prod_shift_no, mat_thick, mat_width,VFREE1,VFREE2,MAT_CODE,@rule_type,'7',wt,amt,'ft'||trim(@prod_shift_group)||trim(@prod_shift_no)"
+						// " from ("
+						// " SELECT t1.product_code,t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.VFREE1,t1.VFREE2,@mat_code mat_code,SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)/@sum_wt*@use_wt as wt,SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)/@sum_wt*@use_amt  as amt"
+						// " FROM tcaai01 t1 "
+						// " left join tcaac09 t9 "
+						// " on  t1.cost_center=t9.sub_backlog_code and t9.mat_code=@mat_code " + left_no +
+						// " WHERE 1=1 "
+						// ;
+// DM8 SQL：
 					sqlstr = " insert into tcaai02 (REC_CREATE_TIME,dept_code,prod_date,sub_backlog_code,cost_center,stats_period,product_code,equ_no, sg_sign,prod_shift_group,prod_shift_no, mat_thick, mat_width,VFREE1,VFREE2,MAT_CODE,RULE_TYPE,DIVVY_TYPE,WT,AMT,key_seq)"
 						" select @datenow,dept_code,prod_date,sub_backlog_code,sub_backlog_code,stats_period,product_code,equ_no, sg_sign,prod_shift_group,prod_shift_no, mat_thick, mat_width,VFREE1,VFREE2,MAT_CODE,@rule_type,'7',wt,amt,'ft'||trim(@prod_shift_group)||trim(@prod_shift_no)"
 						" from ("
-						" SELECT t1.product_code,t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.VFREE1,t1.VFREE2,@mat_code mat_code,SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)/@sum_wt*@use_wt as wt,SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)/@sum_wt*@use_amt  as amt"
+						" SELECT t1.product_code,t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.VFREE1,t1.VFREE2,@mat_code mat_code,SUM(CASE WHEN CAL_RATE IS NULL OR CAL_RATE = '' THEN 0 ELSE CAL_RATE END*divvy_basic_n)/@sum_wt*@use_wt as wt,SUM(CASE WHEN CAL_RATE IS NULL OR CAL_RATE = '' THEN 0 ELSE CAL_RATE END*divvy_basic_n)/@sum_wt*@use_amt  as amt"
 						" FROM tcaai01 t1 "
 						" left join tcaac09 t9 "
 						" on  t1.cost_center=t9.sub_backlog_code and t9.mat_code=@mat_code " + left_no +
@@ -361,11 +401,23 @@ int f_caai_ft(CString stats_period, CString dept_code, CDbConnection * conn)
 				{
 					sqlstr = sqlstr + " AND PRODUCT_CODE =@prod_code ";
 				}
+// DM8 适配 CHANGE-253:查询。空串搜索 DECODE 改为标准 CASE。
+// 改写原因：空串搜索 DECODE(x,'',a,b) 改为标准 CASE WHEN x IS NULL OR x='' THEN a ELSE b,与 CHANGE-107 同理,不依赖空串/NULL 匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+				// sqlstr = sqlstr + " AND t1.sub_backlog_code = @sub_backlog_code "
+					// " AND DIVVY_TYPE ='1' " //产量
+					// " AND stats_period = @stats_period "
+					// " group by   t1.product_code,t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.VFREE1,t1.VFREE2 "
+					// " HAVING SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)!=0 "
+					// ")"
+					// ;
+// DM8 SQL：
 				sqlstr = sqlstr + " AND t1.sub_backlog_code = @sub_backlog_code "
 					" AND DIVVY_TYPE ='1' " //产量
 					" AND stats_period = @stats_period "
 					" group by   t1.product_code,t1.DEPT_CODE, STATS_PERIOD, COST_CENTER, prod_date, prod_shift_group, prod_shift_no, t1.sub_backlog_code, equ_no, t1.sg_sign, t1.mat_thick, t1.mat_width,t1.VFREE1,t1.VFREE2 "
-					" HAVING SUM(DECODE(CAL_RATE,'',0,CAL_RATE)*divvy_basic_n)!=0 "
+					" HAVING SUM(CASE WHEN CAL_RATE IS NULL OR CAL_RATE = '' THEN 0 ELSE CAL_RATE END*divvy_basic_n)!=0 "
 					")"
 					;
 				//Log::Trace("", "", "sqlstr={0}", sqlstr);

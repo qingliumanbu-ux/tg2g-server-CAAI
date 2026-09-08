@@ -47,6 +47,44 @@ int f_caai_sj(CString stats_period, CString dept_code, CDbConnection * conn)
 		cmd_inq.Close();
 
 		//优化使用脚本运行
+// DM8 适配 CHANGE-261:写入。TCAAI02。空串搜索 DECODE(x,'',a,b) 改为标准 CASE WHEN x IS NULL OR x='' THEN a ELSE b,与 CHANGE-107 同理,不依赖空串/NULL 匹配的未记载语义。
+// 改写原因：空串搜索 DECODE(x,'',a,b) 改为标准 CASE WHEN x IS NULL OR x='' THEN a ELSE b,与 CHANGE-107 同理,不依赖空串/NULL 匹配的未记载语义；依据 DM 官方文档,DM8 尚未实测。
+// 本共用分支面向 DM8,其他 DB_KIND 标签也会执行此 SQL;参数、结果列、条件与排序保持不变。
+// 原 SQL（完整保留）：
+		// sqlstr = " insert into tcaai02 (REC_CREATE_TIME,dept_code,cost_center,stats_period,RELATION_NO,product_code,MAT_CODE,RULE_TYPE,WT"
+			// "  ,prod_date, prod_shift_group, prod_shift_no, sub_backlog_code, equ_no, sg_sign, mat_thick, mat_width, vfree1, vfree2, vfree3, vfree4, vfree5 )"
+			// " select @datenow,dept_code,t1.cost_center,stats_period,t1.RELATION_NO,product_code,mat_code,'1',decode(all_wt,0,0,ROUND(WT*use_wt/all_wt,4))"
+			// "  ,prod_date, prod_shift_group, prod_shift_no, sub_backlog_code, equ_no, sg_sign, mat_thick, mat_width, vfree1, vfree2, vfree3, vfree4, vfree5 "
+			// " FROM "
+			// " (select dept_code, cost_center, stats_period, RELATION_NO, MAT_CODE product_code, SUM(QTY) QTY, SUM(WT) WT"
+			// " , prod_date, prod_shift_group, prod_shift_no, sub_backlog_code, equ_no, sg_sign, mat_thick, mat_width, vfree1, vfree2, vfree3, vfree4, vfree5"
+			// " from tcaais1"
+			// " where 1 = 1"
+			// " AND PRO_FLAG = 'O'"
+			// " AND DEPT_CODE = @dept_code"
+			// " AND STATS_PERIOD = @stats_period"
+			// " group by dept_code, cost_center, stats_period, relation_no, MAT_CODE"
+			// " , prod_date, prod_shift_group, prod_shift_no, sub_backlog_code, equ_no, sg_sign, mat_thick, mat_width, vfree1, vfree2, vfree3, vfree4, vfree5"
+			// " ) t1"
+			// " left join"
+			// " (select cost_center, relation_no, SUM(WT) all_wt"
+			// " from tcaais1"
+			// " where 1 = 1"
+			// " AND PRO_FLAG = 'O'"
+			// " AND DEPT_CODE = @dept_code"
+			// " AND STATS_PERIOD = @stats_period"
+			// " GROUP BY cost_center, relation_no) t2 on t1.cost_center = t2.cost_center and t1.relation_no = t2.relation_no"
+			// " left join"
+			// " (select mat_code, cost_center, relation_no, sum(wt) use_wt"
+			// " from tcaais1"
+			// " where 1 = 1"
+			// " AND PRO_FLAG = 'I'"
+			// " AND DEPT_CODE = @dept_code"
+			// " AND STATS_PERIOD = @stats_period"
+			// " GROUP BY MAT_CODE, cost_center, relation_no)  t3 on t1.cost_center = t3.cost_center and t1.relation_no = t3.relation_no"
+			// " where  decode(mat_code, '', ' ', mat_code) != ' '"
+			// ;
+// DM8 SQL：
 		sqlstr = " insert into tcaai02 (REC_CREATE_TIME,dept_code,cost_center,stats_period,RELATION_NO,product_code,MAT_CODE,RULE_TYPE,WT"
 			"  ,prod_date, prod_shift_group, prod_shift_no, sub_backlog_code, equ_no, sg_sign, mat_thick, mat_width, vfree1, vfree2, vfree3, vfree4, vfree5 )"
 			" select @datenow,dept_code,t1.cost_center,stats_period,t1.RELATION_NO,product_code,mat_code,'1',decode(all_wt,0,0,ROUND(WT*use_wt/all_wt,4))"
@@ -78,7 +116,7 @@ int f_caai_sj(CString stats_period, CString dept_code, CDbConnection * conn)
 			" AND DEPT_CODE = @dept_code"
 			" AND STATS_PERIOD = @stats_period"
 			" GROUP BY MAT_CODE, cost_center, relation_no)  t3 on t1.cost_center = t3.cost_center and t1.relation_no = t3.relation_no"
-			" where  decode(mat_code, '', ' ', mat_code) != ' '"
+			" where  CASE WHEN mat_code IS NULL OR mat_code = '' THEN ' ' ELSE mat_code END != ' '"
 			;
 		cmd_inq.SetCommandText(sqlstr);
 		cmd_inq.Parameters.Set("datenow", datenow);
